@@ -5,6 +5,7 @@ import { Camera, Upload } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
+import EXIF from 'exif-js';
 
 interface PhotoUploadProps {
   onPhotoSelect: (file: File, metadata: any) => void;
@@ -14,17 +15,39 @@ export const PhotoUpload: React.FC<PhotoUploadProps> = ({ onPhotoSelect }) => {
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
 
-  const extractExifData = async (file: File) => {
-    const arrayBuffer = await file.arrayBuffer();
-    // In a real app, we would use a proper EXIF library here
-    // For now, we'll return mock data
-    return {
-      location: {
-        latitude: 40.7128,
-        longitude: -74.0060
-      },
-      timestamp: new Date().toISOString()
-    };
+  const extractExifData = (file: File): Promise<any> => {
+    return new Promise((resolve) => {
+      EXIF.getData(file as any, function(this: any) {
+        const exifData = EXIF.getAllTags(this);
+        
+        let latitude = null;
+        let longitude = null;
+
+        if (exifData.GPSLatitude && exifData.GPSLongitude) {
+          const latDegrees = exifData.GPSLatitude[0].numerator / exifData.GPSLatitude[0].denominator;
+          const latMinutes = exifData.GPSLatitude[1].numerator / exifData.GPSLatitude[1].denominator;
+          const latSeconds = exifData.GPSLatitude[2].numerator / exifData.GPSLatitude[2].denominator;
+          const latDirection = exifData.GPSLatitudeRef;
+
+          const longDegrees = exifData.GPSLongitude[0].numerator / exifData.GPSLongitude[0].denominator;
+          const longMinutes = exifData.GPSLongitude[1].numerator / exifData.GPSLongitude[1].denominator;
+          const longSeconds = exifData.GPSLongitude[2].numerator / exifData.GPSLongitude[2].denominator;
+          const longDirection = exifData.GPSLongitudeRef;
+
+          latitude = (latDegrees + latMinutes / 60 + latSeconds / 3600) * (latDirection === 'N' ? 1 : -1);
+          longitude = (longDegrees + longMinutes / 60 + longSeconds / 3600) * (longDirection === 'E' ? 1 : -1);
+        }
+
+        resolve({
+          location: {
+            // Fallback to NYC coordinates if no GPS data is found
+            latitude: latitude || 40.7128,
+            longitude: longitude || -74.0060
+          },
+          timestamp: exifData.DateTime || new Date().toISOString()
+        });
+      });
+    });
   };
 
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
@@ -47,6 +70,14 @@ export const PhotoUpload: React.FC<PhotoUploadProps> = ({ onPhotoSelect }) => {
       onPhotoSelect(file, metadata);
     } catch (error) {
       console.error('Error processing image:', error);
+      // Even if EXIF extraction fails, we still want to upload the image with default coordinates
+      onPhotoSelect(file, {
+        location: {
+          latitude: 40.7128,
+          longitude: -74.0060
+        },
+        timestamp: new Date().toISOString()
+      });
     }
   }, [onPhotoSelect]);
 

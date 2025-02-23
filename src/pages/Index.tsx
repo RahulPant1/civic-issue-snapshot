@@ -27,11 +27,15 @@ const Index = () => {
   };
 
   const handleShare = async () => {
-    if (!selectedPhoto || !issueSummary) return;
+    if (!selectedPhoto) return;
 
     const { latitude, longitude } = selectedPhoto.metadata.location;
     const mapsUrl = `https://www.google.com/maps?q=${latitude},${longitude}`;
-    const tweetText = `🚨 Civic Issue Report: ${issueSummary}\n📍 Location: ${mapsUrl}`;
+    
+    // Create tweet text with or without AI analysis
+    const tweetText = issueSummary
+      ? `🚨 Civic Issue Report: ${issueSummary}\n📍 Location: ${mapsUrl}`
+      : `🚨 Civic Issue Report\n📍 Location: ${mapsUrl}`;
 
     // Open Twitter share dialog
     window.open(
@@ -73,15 +77,14 @@ const Index = () => {
                 onAnalysisComplete={handleAnalysisComplete}
               />
 
-              {issueSummary && (
-                <Button
-                  onClick={handleShare}
-                  className="w-full bg-civic-accent hover:bg-civic-accent/90 text-white"
-                >
-                  <Share className="w-4 h-4 mr-2" />
-                  Share on Twitter
-                </Button>
-              )}
+              {/* Share button is now available as soon as photo is uploaded */}
+              <Button
+                onClick={handleShare}
+                className="w-full bg-civic-accent hover:bg-civic-accent/90 text-white"
+              >
+                <Share className="w-4 h-4 mr-2" />
+                Share on Twitter
+              </Button>
             </div>
           )}
         </div>
